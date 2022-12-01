@@ -7,8 +7,8 @@ import { UserPageView } from './charts/user_page'
 function App() {
   return (
     <>
-      <MainPageView />
       <UserPageView />
+      <MainPageView />
     </>
   )
 }
