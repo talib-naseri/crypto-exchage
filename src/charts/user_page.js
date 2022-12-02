@@ -1,6 +1,7 @@
 import * as am5 from '@amcharts/amcharts5'
 import * as am5xy from '@amcharts/amcharts5/xy'
 import am5themes_Animated from '@amcharts/amcharts5/themes/Animated'
+import am5themes_Responsive from '@amcharts/amcharts5/themes/Responsive'
 import * as am5radar from '@amcharts/amcharts5/radar'
 import { useEffect, useLayoutEffect, useState } from 'react'
 
@@ -14,7 +15,7 @@ const MchartGauge = ({ userInput, data }) => {
   useLayoutEffect(() => {
     let root = am5.Root.new('chartdiv2')
 
-    root.setThemes([am5themes_Animated.new(root)])
+    root.setThemes([am5themes_Animated.new(root), am5themes_Responsive.new(root)])
 
     const chart = root.container.children.push(
       am5radar.RadarChart.new(root, {
@@ -22,10 +23,11 @@ const MchartGauge = ({ userInput, data }) => {
         panY: false,
         startAngle: -180,
         endAngle: 0,
-        innerRadius: -20,
         layout: root.verticalLayout,
       }),
     )
+
+    chart.getNumberFormatter().set("numberFormat", "#.0a");
 
     // ====> Measurement #1
     const axisRenderer = am5radar.AxisRendererCircular.new(root, {
@@ -33,8 +35,12 @@ const MchartGauge = ({ userInput, data }) => {
       minGridDistance: 100,
     })
 
-    axisRenderer.labels.template.setAll({
-      radius: 15,
+    // axisRenderer.labels.template.setAll({
+    //   radius: 15,
+    // })
+
+    axisRenderer.grid.template.setAll({
+      visible: false,
     })
 
     const axis = chart.xAxes.push(
@@ -47,13 +53,12 @@ const MchartGauge = ({ userInput, data }) => {
       }),
     )
 
-    const createRange = (start, end, color, label) => {
+    // ====> create range
+    const createRange = (start, end, color, innerRadius, label = null) => {
       const rangeDataItem = axis.makeDataItem({
         value: start,
         endValue: end,
       })
-
-      debugger
 
       const range = axis.createAxisRange(rangeDataItem)
 
@@ -61,39 +66,95 @@ const MchartGauge = ({ userInput, data }) => {
         visible: true,
         fill: color,
         fillOpacity: 0.8,
+        innerRadius,
       })
 
       rangeDataItem.get('tick').setAll({
         visible: false,
       })
 
-      // rangeDataItem.get('label').setAll({
-      //   text: label,
-      //   inside: true,
-      //   radius: 5,
-      //   fontSize: '0.9em',
-      //   fill: am5.color(0xffffff),
-      // })
+      if (label) {
+        rangeDataItem.get('label').setAll({
+          text: label,
+          inside: true,
+          radius: innerRadius / -2 - 5,
+          fontSize: '0.9em',
+          fill: am5.color(0xffffff),
+        })
+      }
     }
 
-    createRange(data.minValue, data.currentValue, am5.color(0x297373), 'Safe')
+    createRange(data.minValue, data.currentValue, '#3e4ab8', -40)
 
     if (userInput) {
       createRange(
         data.currentValue,
         data.currentValue + +userInput,
-        am5.color(0xf33107),
-        'Warning',
+        '#7880cd',
+        -35,
+        userInput,
       )
     }
 
-    createRange(
-      data.currentValue + +userInput,
-      data.maxValue,
-      // am5.color(0x297373),
-      am5.color(0xff621f),
-      'Danger',
-    )
+    createRange(data.currentValue + +userInput, data.maxValue, '#b2b7e3', -20)
+
+    // ====> create hands
+    const createLabel = (x, y, value, bgColor) => {
+      chart.seriesContainer.children.push(
+        am5.Label.new(root, {
+          fill: '#ffffff',
+          x: x,
+          y: y,
+          centerX: am5.percent(50),
+          textAlign: 'center',
+          centerY: am5.percent(0),
+          fontWeight: 'bold',
+          fontSize: '1.5rem',
+          text: `${value}`,
+          background: am5.RoundedRectangle.new(root, {
+            fill: '#3e4ab8',
+          }),
+        }),
+      )
+    }
+
+    createLabel(0, -60, data.currentValue, '#19F307')
+    // createLabel(0, -40, 600, '#9fb7ea')
+
+    // ====> create hands
+    const createHand = (value, color) => {
+      const handDataItem = axis.makeDataItem({
+        value,
+      })
+
+      const hand = handDataItem.set(
+        'bullet',
+        am5xy.AxisBullet.new(root, {
+          sprite: am5radar.ClockHand.new(root, {
+            radius: am5.percent(90),
+            innerRadius: am5.percent(70),
+          }),
+        }),
+      )
+
+      hand.get('sprite').pin.setAll({
+        forceHidden: true,
+      })
+
+      hand.get('sprite').hand.setAll({
+        fill: color,
+        fillOpacity: 0.9,
+      })
+
+      axis.createAxisRange(handDataItem)
+
+      return hand
+    }
+
+    createHand(data.currentValue, '#3e4ab8')
+    if (userInput) {
+      createHand(+userInput + data.currentValue, '#7880cd')
+    }
 
     return () => {
       root.dispose()
@@ -103,14 +164,14 @@ const MchartGauge = ({ userInput, data }) => {
   return (
     <>
       <h3>Gauge Chart (mchart)</h3>
-      <div>Min: {data.minValue}</div>
-      <div>Current: {data.currentValue}</div>
-      <div>Max: {data.maxValue}</div>
-      <div>userInput: {userInput}</div>
+      <div>Start Value: {data.minValue}</div>
+      <div>Current Value: {data.currentValue}</div>
+      <div>End Value: {data.maxValue}</div>
+      <div>User Input: {userInput}</div>
       <div
         id="chartdiv2"
         className="border"
-        style={{ width: '100%', height: 400 }}
+        style={{ width: '100%', height: 500 }}
       ></div>
     </>
   )
